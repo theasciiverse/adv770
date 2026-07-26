@@ -1,0 +1,37 @@
+#!/bin/sh
+#
+# Builds acdc executable (with utf8 support, if possible). May get called by
+# advbld, in which case CC is forced to the CC setting in advbld (which is
+# by default cc, not gcc!).
+#
+CC=gcc
+while [ $# != 0 ]; do
+  case "$1" in
+    -x) set -x ;;
+    -d|--d*) d=-DDEBUG ;;
+    -cc) shift; CC=$1 ;;
+    *) ;;
+  esac
+  shift
+done
+case "$(uname -m)" in
+  *64*) arch=64 ;;
+  *) arch=32 ;;
+esac
+[ "$CC" = gcc ] && CC='gcc -g -gdwarf-2 -g3'
+list=$(ls -1 *.c | grep -v -e bad -e good)
+[ ! -r ../lib$arch/libutf8proc.a ] && \
+(
+  echo Building utf8proc library...
+  cd ../utf8proc/;
+  make clean >/dev/null
+  CFLAGS="-O2 -m$arch" LDFLAGS=-m$arch make libutf8proc.a >/dev/null
+  cp libutf8proc.a utf8proc.h ../lib$arch/
+)
+if [ -r ../lib$arch/libutf8proc.a ]; then
+  utf8=-DHAVE_UTF8
+else
+  utf8=
+  echo "***WARNING** Building acdc with no UTF8 support"
+fi
+$CC $list $d $utf8 -o acdc -I ../utf8proc -L ../lib$arch -lutf8proc
