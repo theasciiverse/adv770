@@ -6233,6 +6233,15 @@ int parse_args (int argc, char **argv)
       }
 #endif /* CGI */
    }
+/* Asciiverse: a session log behind ADV770_LOG, set to anything. The
+ * game's own log (as with -l) goes to adv770.log in the state folder:
+ * every command as typed and every reply, each session's start, appended.
+ */
+   if (!*log_path && getenv ("ADV770_LOG") && *getenv ("ADV770_LOG"))
+   {
+      sprintf (log_path, "%s.log", autoname + 1);
+      store_conf (LOGFILE, UMODE);
+   }
 #if CONSOLE
 #if HTTP
 #  if OSX
