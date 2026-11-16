@@ -5603,13 +5603,46 @@ void read_conf ()
       handle_token ('b', JUSTIFY, justify ? "Y" : "N", 0, NULL);
    if (conf [MARGIN] == NULL)
       handle_token ('p', MARGIN, "1", 1, &Margin);
-   if (conf [WIDTH] == NULL)
-      handle_token ('p', WIDTH, "80", 80, &Linlen);
-   if (conf [HEIGHT] == NULL)
-      handle_token ('p', HEIGHT, "24", 24, &Screen);
+/* Asciiverse: with no size from the command line or this file, the
+ * console takes the terminal's own, and 80x24 only when it cannot be read.
+ */
+   {
+      int cols = 0, rows = 0;
+      char nbuf [16];
+      int have = (mode == CONSOLE || !mode) && av_term_size (&cols, &rows);
+      if (conf [WIDTH] == NULL)
+      {
+         if (have && cols >= 16)
+         {
+            sprintf (nbuf, "%d", cols);
+            handle_token ('p', WIDTH, nbuf, 0, &Linlen);
+         }
+         else
+            handle_token ('p', WIDTH, "80", 80, &Linlen);
+      }
+      if (conf [HEIGHT] == NULL)
+      {
+         if (have && rows >= 5)
+         {
+            sprintf (nbuf, "%d", rows);
+            handle_token ('p', HEIGHT, nbuf, 0, &Screen);
+         }
+         else
+            handle_token ('p', HEIGHT, "24", 24, &Screen);
+      }
+   }
+   if (Linlen - 2 * Margin < 16)
+      Margin = (Linlen - 16) / 2;
 
 #if !HTTP
    Maxlen = Linlen - 2 * Margin;
+#  ifndef NO_READLINE
+   {
+      int offset = prompt_ptr - prompt_line;
+      prompt_line = advrealloc (prompt_line, 2 * Maxlen + 1);
+      prompt_ptr = prompt_line + offset;
+   }
+#  endif /* NO_READLINE */
 #endif /* !HTTP */
 
 /* Finally make GRACETIME hold the sum of the PINGTIME and GRACETIME values. */
@@ -5700,8 +5733,10 @@ char *cftext [] = {
    "#"EOL,
    "   LAYOUT JUSTIFY DEFAULT        # Accept game's default"EOL,
    "   LAYOUT MARGIN        1        # Left and right text margin"EOL,
-   "   LAYOUT WIDTH        80        # Console window width in columns"EOL,
-   "   LAYOUT HEIGHT       24        # Console window height in lines"EOL,
+   "# WIDTH and HEIGHT are the terminal's own unless set here (80 and 24"EOL,
+   "# when the terminal does not say)."EOL,
+   "#  LAYOUT WIDTH        80        # Console window width in columns"EOL,
+   "#  LAYOUT HEIGHT       24        # Console window height in lines"EOL,
    "#"EOL,
    "############################# End of file #############################"EOL,
    ""
