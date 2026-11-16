@@ -5145,6 +5145,11 @@ FILE *try_db (char *dbdir, char *dbname, int trim)
 #  define CONFDIR ".acode"
 #endif /* WINDOWS */
 
+/* Asciiverse: the player's state folder for this game (asciiverse.c) */
+char *av_state_dir (const char *);
+int av_make_dirs (const char *);
+int av_term_size (int *, int *);
+
 #ifdef MSDOS
 #  define CONFFILE "acode.cfg"
 #else
@@ -5353,16 +5358,10 @@ void read_conf ()
       strcpy (cptr + 1, CONFFILE);  /* Append conffile name to it */
       cfile = fopen (cbuf, RMODE);  /* Try opening */
    }
-   if (cfile == NULL)   /* No good? Well try hidden homedir place */
+   if (cfile == NULL)   /* No good? Asciiverse: try the state folder */
    {
-      sprintf (cbuf, "%s%c%s%c%s", getenv (HOME), SEP, CONFDIR, SEP, CONFFILE);
+      sprintf (cbuf, "%s%c%s", av_state_dir (truname + 1), SEP, CONFFILE);
       cfile = fopen (cbuf, RMODE);  /* Try that one */
-   }
-   if (cfile == NULL)   /* No good? Well try standard homedir place */
-   {
-      char *confdir = CONFDIR;
-      sprintf (cbuf, "%s%c%s%c%s", getenv (HOME), SEP, confdir + 1, SEP, CONFFILE);
-      cfile = fopen (cbuf, RMODE);  /* TRy that one */
    }
    if (cfile == NULL)               /* Still no good? */
       cfile = fopen (CONFFILE, RMODE); /* OK, try current dir */
@@ -5682,7 +5681,7 @@ char *cftext [] = {
    "# last two being optionally followed by name or pathname; this may indicate"EOL,
    "# either a specific logfile or a directory in which the logfile will be"EOL,
    "# placed. The default logfile name is <game_name>.log and its default"EOL,
-   "# location is ~/" CONFDIR "/<game_name>. "EOL,
+   "# location is the folder holding this file. "EOL,
    "#"EOL,
    "   LOGFILE NONE                  # No logfile"EOL,
    "#"EOL,
@@ -5721,20 +5720,16 @@ void make_conf (void)
 void gothere(void)
 {
      struct stat stat_buf;
-     char *confdir = CONFDIR;
 #if WINDOWS
       getcwd (odir, sizeof(odir));
 #endif /* WINDOWS */
-      chdir (getenv (HOME));
-      if (chdir (CONFDIR) != 0 && chdir(confdir + 1) != 0)
-      {
-#if !WINDOWS || defined(MSDOS)
-         mkdir (CONFDIR, 0700);
-#else
-         mkdir (CONFDIR);
-#endif /* MSDOS */ 
-         chdir (CONFDIR);
-      }   
+/*
+ * Asciiverse: the config file, saved games and the interrupted-game state
+ * all live in the player's state folder for this game (asciiverse.c),
+ * instead of ~/.acode with a folder per game in it.
+ */
+      av_make_dirs (av_state_dir (truname + 1));
+      chdir (av_state_dir (truname + 1));
 /*
  * If necessary, create the config file.
  */
@@ -5745,18 +5740,6 @@ void gothere(void)
          make_conf ();
       }
 #endif /* ADVLIB */
-/*
- * Go to where A-code games live!
- */
-      if (chdir (truname + 1) != 0)
-      {
-#if !WINDOWS || defined(MSDOS)
-         mkdir (truname + 1, 0700);
-#else
-         mkdir (truname + 1);
-#endif /* MSDOS */
-         chdir (truname + 1);
-      }
 }
 /*===========================================================*/
 void set_title(void)
@@ -6111,8 +6094,8 @@ int parse_args (int argc, char **argv)
          printf ("\nUsage: %s [options]\n\nOptions:\n", prog);
          puts ("    -n                  force a new game (ignore an aborted one)");
          puts ("   [-r]<dumpfile>       restore game from dump");
-         printf ("    -l[<logfile>]       log the game (by default in ~/" CONFDIR "/%s/)\n",
-            autoname + 1);
+         printf ("    -l[<logfile>]       log the game (by default in %s)\n",
+            av_state_dir (autoname + 1));
 #if HTTP
          puts ("    -C                  Force console (non-browser) display");
          puts ("    -B[browser]         Force display through browser (default)");
